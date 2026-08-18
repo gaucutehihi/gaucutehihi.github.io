@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-/* ---------- 3D hero: torus knot wireframe + hạt, parallax theo chuột ---------- */
+/* ---------- 3D hero: icon công nghệ bay vòng quanh + hạt, parallax theo chuột ---------- */
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const canvas = document.getElementById('bg3d');
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -10,21 +10,46 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
 camera.position.z = 7;
 
-const knot = new THREE.Mesh(
-  new THREE.TorusKnotGeometry(1.7, 0.5, 140, 18),
-  new THREE.MeshBasicMaterial({ color: 0x53d8e8, wireframe: true, transparent: true, opacity: 0.28 })
-);
-knot.position.set(2.6, 0.4, 0);
-scene.add(knot);
+/* vẽ icon dạng huy hiệu tròn + chữ lên canvas → texture sprite */
+function iconTexture(label, color) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.beginPath(); g.arc(128, 128, 118, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(10, 25, 50, 0.92)'; g.fill();
+  g.lineWidth = 10; g.strokeStyle = color; g.stroke();
+  g.fillStyle = color;
+  g.font = `600 ${label.length > 4 ? 52 : 72}px "JetBrains Mono", monospace`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(label, 128, 134);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
 
-const inner = new THREE.Mesh(
-  new THREE.IcosahedronGeometry(0.9, 1),
-  new THREE.MeshBasicMaterial({ color: 0xff6b35, wireframe: true, transparent: true, opacity: 0.5 })
-);
-inner.position.copy(knot.position);
-scene.add(inner);
+const TECHS = [
+  ['C++', '#659ad2'], ['Py', '#ffd43b'], ['JS', '#f7df1e'], ['TS', '#3178c6'],
+  ['Node', '#8cc84b'], ['PHP', '#a0a8f0'], ['HTML', '#ff6b35'], ['CSS', '#53d8e8'],
+  ['Git', '#f05033'], ['SQL', '#8fa5c9'], ['⚛', '#61dafb'], ['</>', '#eaf2ff']
+];
+const icons = TECHS.map(([label, color], i) => {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: iconTexture(label, color), transparent: true, opacity: 0.9, depthWrite: false
+  }));
+  const s = 0.75 + Math.random() * 0.45;
+  sp.scale.set(s, s, 1);
+  sp.userData = {
+    r: 2.6 + Math.random() * 2.4,          // bán kính quỹ đạo
+    a: (i / TECHS.length) * Math.PI * 2,   // góc ban đầu
+    sp: 0.00012 + Math.random() * 0.00018, // tốc độ quay
+    y: (Math.random() - 0.5) * 3.4,        // độ cao
+    bob: Math.random() * Math.PI * 2       // pha nhấp nhô
+  };
+  scene.add(sp);
+  return sp;
+});
 
-const N = 700;
+const N = 500;
 const pos = new Float32Array(N * 3);
 for (let i = 0; i < N * 3; i++) pos[i] = (Math.random() - 0.5) * 22;
 const pts = new THREE.Points(
@@ -48,10 +73,12 @@ addEventListener('resize', resize);
 resize();
 
 function tick(t) {
-  knot.rotation.x = t * 0.00012;
-  knot.rotation.y = t * 0.00018;
-  inner.rotation.y = -t * 0.0003;
-  inner.rotation.z = t * 0.0002;
+  for (const sp of icons) {
+    const u = sp.userData;
+    const a = u.a + t * u.sp;
+    sp.position.set(Math.cos(a) * u.r, u.y + Math.sin(t * 0.0006 + u.bob) * 0.35, Math.sin(a) * u.r * 0.55);
+    sp.material.opacity = 0.55 + 0.35 * ((Math.sin(a) + 1) / 2); // icon phía sau mờ hơn
+  }
   pts.rotation.y = t * 0.00003;
   camera.position.x += (mx * 0.6 - camera.position.x) * 0.04;
   camera.position.y += (-my * 0.4 - camera.position.y) * 0.04;
