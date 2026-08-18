@@ -86,6 +86,8 @@ async function refresh() {
   renderManage();
 }
 
+let editing = null; // id của mục/file đang mở form sửa
+
 function renderManage() {
   $('manage-list').innerHTML = site.folders.map(fo => `
     <div class="item-row">
@@ -97,6 +99,17 @@ function renderManage() {
         <button class="danger" data-del-fo="${fo.id}">Xoá mục</button>
       </div>
     </div>
+    ${editing === fo.id ? `
+      <div class="edit-form">
+        <label>Tên mục</label>
+        <input type="text" id="ef-name" maxlength="120" value="${esc(fo.name)}">
+        <label>Giới thiệu mục</label>
+        <textarea id="ef-desc" maxlength="2000">${esc(fo.description || '')}</textarea>
+        <div class="row" style="margin-top:12px">
+          <button data-save-fo="${fo.id}">Lưu</button>
+          <button class="ghost" data-cancel>Huỷ</button>
+        </div>
+      </div>` : ''}
     ${fo.files.map(f => `
       <div class="item-row" style="padding-left:26px">
         <div><div class="name">${esc(f.label)}</div>
@@ -105,21 +118,56 @@ function renderManage() {
           <button class="small" data-edit-f="${f.id}">Sửa</button>
           <button class="danger" data-del-f="${f.id}">Xoá</button>
         </div>
-      </div>`).join('')}`).join('') || '<p class="meta">Chưa có mục nào.</p>';
+      </div>
+      ${editing === f.id ? `
+        <div class="edit-form" style="margin-left:26px">
+          <label>Tên hiển thị</label>
+          <input type="text" id="ef-name" maxlength="160" value="${esc(f.label)}">
+          <label>Mô tả / ghi chú</label>
+          <textarea id="ef-desc" maxlength="2000">${esc(f.description || '')}</textarea>
+          <div class="row" style="margin-top:12px">
+            <button data-save-f="${f.id}">Lưu</button>
+            <button class="ghost" data-cancel>Huỷ</button>
+          </div>
+        </div>` : ''}`).join('')}`).join('') || '<p class="meta">Chưa có mục nào.</p>';
 }
 
 $('manage-list').addEventListener('click', async e => {
   const b = e.target.closest('button');
   if (!b) return;
   try {
-    if (b.dataset.copyFo) {
+    if (b.dataset.cancel) { editing = null; renderManage(); return; }
+    if (b.dataset.editFo || b.dataset.editF) {
+      editing = b.dataset.editFo || b.dataset.editF;
+      renderManage();
+      $('ef-name')?.focus();
+      return;
+    }
+    if (b.dataset.saveFo) {
+      const name = $('ef-name').value.trim();
+      if (!name) return alert('Thiếu tên mục.');
+      const description = $('ef-desc').value;
+      await mutate(`Sửa mục: ${name}`, d => {
+        const f = d.folders.find(x => x.id === b.dataset.saveFo);
+        f.name = name.slice(0, 120); f.description = description.slice(0, 2000);
+      });
+      editing = null;
+    } else if (b.dataset.saveF) {
+      const label = $('ef-name').value.trim();
+      if (!label) return alert('Thiếu tên hiển thị.');
+      const description = $('ef-desc').value;
+      await mutate(`Sửa file: ${label}`, d => {
+        for (const fo of d.folders) for (const x of fo.files)
+          if (x.id === b.dataset.saveF) { x.label = label.slice(0, 160); x.description = description.slice(0, 2000); }
+      });
+      editing = null;
+    } else if (b.dataset.copyFo) {
       const fo = site.folders.find(f => f.id === b.dataset.copyFo);
       const url = new URL(slug(fo.name), location.href.replace(/console\.html.*$/, '')).href;
       try { await navigator.clipboard.writeText(url); } catch { prompt('Link của mục:', url); }
       b.textContent = 'Đã copy ✓'; setTimeout(() => b.textContent = 'Copy link', 1500);
       return;
-    }
-    if (b.dataset.delFo) {
+    } else if (b.dataset.delFo) {
       const fo = site.folders.find(f => f.id === b.dataset.delFo);
       if (!confirm(`Xoá mục "${fo.name}" và ${fo.files.length} file bên trong? File trên repo sẽ xoá cùng lúc.`)) return;
       // xoá từng file trên repo (bỏ qua file đã mất)
@@ -130,14 +178,6 @@ $('manage-list').addEventListener('click', async e => {
         } catch { /* đã xoá tay */ }
       }
       await mutate(`Xoá mục: ${fo.name}`, d => { d.folders = d.folders.filter(f => f.id !== fo.id); });
-    } else if (b.dataset.editFo) {
-      const fo = site.folders.find(f => f.id === b.dataset.editFo);
-      const name = prompt('Tên mục:', fo.name); if (name === null) return;
-      const description = prompt('Giới thiệu mục:', fo.description || ''); if (description === null) return;
-      await mutate(`Sửa mục: ${name}`, d => {
-        const f = d.folders.find(x => x.id === fo.id);
-        f.name = name.slice(0, 120); f.description = description.slice(0, 2000);
-      });
     } else if (b.dataset.delF) {
       const f = site.folders.flatMap(x => x.files).find(x => x.id === b.dataset.delF);
       if (!confirm(`Xoá file "${f.label}"?`)) return;
@@ -147,14 +187,6 @@ $('manage-list').addEventListener('click', async e => {
       } catch { /* đã xoá tay */ }
       await mutate(`Xoá file: ${f.label}`, d => {
         for (const fo of d.folders) fo.files = fo.files.filter(x => x.id !== f.id);
-      });
-    } else if (b.dataset.editF) {
-      const f = site.folders.flatMap(x => x.files).find(x => x.id === b.dataset.editF);
-      const label = prompt('Tên hiển thị:', f.label); if (label === null) return;
-      const description = prompt('Mô tả:', f.description || ''); if (description === null) return;
-      await mutate(`Sửa file: ${label}`, d => {
-        for (const fo of d.folders) for (const x of fo.files)
-          if (x.id === f.id) { x.label = label.slice(0, 160); x.description = description.slice(0, 2000); }
       });
     }
     await refresh();

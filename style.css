@@ -142,6 +142,12 @@ header, main, footer { position: relative; z-index: 1; }
 }
 .copy:hover { background: rgba(83, 216, 232, .12); }
 
+/* ---------- form sửa trong console ---------- */
+.edit-form {
+  background: rgba(8, 20, 38, .6); border: 1px solid rgba(83, 216, 232, .3);
+  border-radius: 10px; padding: 16px; margin: 8px 0;
+}
+
 .empty { color: var(--dim); border: 1px dashed var(--line); border-radius: 10px; padding: 40px; text-align: center; margin-top: 40px; }
 .foot { padding: 60px 20px 30px; color: var(--dim); font-family: var(--mono); font-size: 12px; }
 
