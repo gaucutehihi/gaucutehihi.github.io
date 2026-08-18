@@ -365,20 +365,50 @@ $('manage-list').addEventListener('click', async e => {
   } catch (err) { alert(err.message); }
 });
 
-/* ---------- đăng nhập ---------- */
+/* ---------- bảo vệ: PIN + token dán 1 lần (lưu máy bạn, KHÔNG nằm trong repo) ---------- */
+const EMBED = {
+  repo: 'gaucutehihi/gaucutehihi.github.io',
+  branch: 'main'
+};
+const PIN_HASH = 'c7d7ec57688dff7b8bb3f03df2eac6afd9544b0973d353e02589fffea8a3ceea'; // sha256 của PIN
+const sha256 = async s => {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+};
+
 $('btn-login').onclick = async () => {
-  const token = $('gh-token').value.trim();
-  const repo = $('gh-repo').value.trim();
-  const branch = $('gh-branch').value.trim() || 'main';
-  if (!token || !/^[\w.-]+\/[\w.-]+$/.test(repo))
-    return msg($('login-msg'), 'Cần token và repo dạng user/ten-repo.', false);
-  auth = { token, repo, branch };
-  try {
-    await fetch(`https://api.github.com/repos/${repo}`, { headers: { Authorization: 'Bearer ' + token } })
-      .then(r => { if (!r.ok) throw new Error(r.status === 401 ? 'Token sai hoặc hết hạn.' : 'Không thấy repo — kiểm tra tên và quyền token.'); });
-    localStorage.setItem(LS, JSON.stringify(auth));
+  // chặn brute-force: 5 lần sai → khoá 15 phút
+  const a = JSON.parse(localStorage.getItem('kho-attempts') || '{"count":0,"resetAt":0}');
+  if (a.count >= 5 && Date.now() < a.resetAt)
+    return msg($('login-msg'), 'Sai quá nhiều lần — đợi 15 phút.', false);
+  const pin = $('pin').value.trim();
+  if (await sha256(pin) !== PIN_HASH) {
+    localStorage.setItem('kho-attempts', JSON.stringify({ count: a.count + 1, resetAt: Date.now() + 15 * 60 * 1000 }));
+    return msg($('login-msg'), 'Sai PIN.', false);
+  }
+  localStorage.removeItem('kho-attempts');
+  sessionStorage.setItem('kho-unlocked', '1');
+  const savedToken = localStorage.getItem('kho-token');
+  if (savedToken) {
+    auth = { ...EMBED, token: savedToken };
     showAdmin();
-  } catch (err) { msg($('login-msg'), err.message, false); }
+  } else {
+    $('login-view').hidden = true;
+    $('token-view').hidden = false; // lần đầu: dán token 1 lần
+  }
+};
+$('pin').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-login').click(); });
+
+$('btn-token').onclick = async () => {
+  const token = $('gh-token').value.trim();
+  if (!token) return msg($('token-msg'), 'Dán token vào ô.', false);
+  try {
+    await fetch(`https://api.github.com/repos/${EMBED.repo}`, { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => { if (!r.ok) throw new Error(r.status === 401 ? 'Token sai hoặc hết hạn.' : 'Token thiếu quyền đọc repo.'); });
+    localStorage.setItem('kho-token', token);
+    auth = { ...EMBED, token };
+    showAdmin();
+  } catch (err) { msg($('token-msg'), err.message, false); }
 };
 
 function showAdmin() {
@@ -388,7 +418,12 @@ function showAdmin() {
   refresh().catch(e => alert(e.message));
 }
 
-$('btn-logout').onclick = () => { localStorage.removeItem(LS); location.reload(); };
+$('btn-logout').onclick = () => {
+  localStorage.removeItem(LS);
+  localStorage.removeItem('kho-token');
+  sessionStorage.removeItem('kho-unlocked');
+  location.reload();
+};
 
 /* ---------- cài đặt ---------- */
 $('btn-settings').onclick = async () => {
@@ -455,5 +490,5 @@ $('btn-upload').onclick = async () => {
   finally { btn.disabled = false; btn.textContent = 'Tải lên'; }
 };
 
-if (auth?.token) showAdmin();
+if (auth?.token && sessionStorage.getItem('kho-unlocked') === '1') showAdmin();
 else $('login-view').hidden = false;

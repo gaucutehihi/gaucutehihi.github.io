@@ -15,17 +15,25 @@
   <!-- đăng nhập -->
   <div id="login-view" hidden>
     <h1>Console</h1>
-    <p class="sub">Khu vực riêng của admin — kết nối GitHub bằng token của bạn.</p>
+    <p class="sub">Khu vực riêng của admin.</p>
+    <div class="panel">
+      <label for="pin">PIN</label>
+      <input type="password" id="pin" autocomplete="off" inputmode="numeric" placeholder="••••••">
+      <button id="btn-login">Mở khoá</button>
+      <p id="login-msg" class="msg"></p>
+    </div>
+  </div>
+
+  <!-- dán token lần đầu -->
+  <div id="token-view" hidden>
+    <h1>Console</h1>
+    <p class="sub">Lần đầu — dán GitHub token 1 lần, sau đó chỉ cần PIN.</p>
     <div class="panel">
       <label for="gh-token">GitHub token (fine-grained, quyền Contents: Read &amp; Write)</label>
       <input type="password" id="gh-token" autocomplete="off" placeholder="github_pat_…">
-      <label for="gh-repo">Repo (dạng <code>user/ten-repo</code>)</label>
-      <input type="text" id="gh-repo" placeholder="vd: minh/kho-du-an">
-      <label for="gh-branch">Branch</label>
-      <input type="text" id="gh-branch" value="main">
-      <button id="btn-login">Kết nối</button>
-      <p id="login-msg" class="msg"></p>
-      <p class="sub" style="margin-top:14px">Token chỉ lưu trong trình duyệt của bạn (localStorage), không gửi đi đâu ngoài GitHub.</p>
+      <button id="btn-token">Kết nối</button>
+      <p id="token-msg" class="msg"></p>
+      <p class="sub" style="margin-top:14px">Token chỉ lưu trong trình duyệt của bạn, không nằm trong repo.</p>
     </div>
   </div>
 

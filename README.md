@@ -6,7 +6,7 @@ Chỉ bạn (admin) vào được console để tạo mục, upload file, viết
 
 ## Cách hoạt động
 - Trang chủ (`index.html`) đọc `data.json` để hiển thị.
-- Console (`console.html`) đăng nhập bằng **GitHub token** của bạn, mỗi thao tác
+- Console (`admin-b7c97f.html`) đăng nhập bằng **GitHub token** của bạn, mỗi thao tác
   (tạo mục, upload, sửa, xoá) = 1 commit thẳng vào repo qua GitHub API.
 - File upload nằm trong thư mục `uploads/` của repo, khách tải bằng link raw.
 
@@ -24,9 +24,9 @@ Chỉ bạn (admin) vào được console để tạo mục, upload file, viết
 4. Copy token (dạng `github_pat_…`).
 
 ### 3. Vào console admin
-- Mở `https://USERNAME.github.io/TEN-REPO/console.html`
+- Mở `https://USERNAME.github.io/TEN-REPO/admin-b7c97f.html`
   (đường dẫn này không có link trên trang chủ — chỉ mình bạn biết;
-  muốn bí mật hơn thì đổi tên file `console.html` thành tên khác, VD `abc123.html`).
+  muốn bí mật hơn thì đổi tên file `admin-b7c97f.html` thành tên khác, VD `abc123.html`).
 - Dán token + `USERNAME/TEN-REPO` + branch `main` → Kết nối.
 - Token chỉ lưu trong trình duyệt của bạn (localStorage).
 
@@ -41,7 +41,7 @@ Chỉ bạn (admin) vào được console để tạo mục, upload file, viết
 index.html     trang chủ (hero 3D three.js)
 app.js         đọc data.json, vẽ danh sách
 style.css      giao diện blueprint
-console.html   trang console admin (đường dẫn bí mật)
+admin-b7c97f.html   trang console admin (đường dẫn bí mật)
 console.js     gọi GitHub API: commit data.json + uploads/
 data.json      dữ liệu (console tự cập nhật — đừng sửa tay)
 uploads/       file upload (console tự tạo)
