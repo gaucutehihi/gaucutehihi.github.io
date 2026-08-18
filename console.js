@@ -238,3 +238,4 @@ $('btn-upload').onclick = async () => {
 };
 
 if (auth?.token) showAdmin();
+else $('login-view').hidden = false;
