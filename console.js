@@ -97,17 +97,26 @@ async function refresh() {
   loadAdminChat();
 }
 
-/* ---------- báo lỗi từ khách ---------- */
-const BUCKET = () => site?.settings.chatBucket;
-const kv = p => `https://kvdb.io/${BUCKET()}/${p}`;
-const kvR = p => kv(p) + '?t=' + Date.now(); // GET kèm timestamp — kvdb bị browser cache 1 tháng
+/* ---------- báo lỗi từ khách (textdb.online) ---------- */
+const PREFIX = () => site?.settings.chatBucket;
+async function dbRead(key) {
+  try {
+    const t = await (await fetch(`https://api.textdb.online/${PREFIX()}-${key}?t=${Date.now()}`)).text();
+    const j = JSON.parse(t);
+    return Array.isArray(j) ? j : [];
+  } catch { return []; }
+}
+async function dbWrite(key, val) {
+  const body = new URLSearchParams();
+  body.set('key', `${PREFIX()}-${key}`);
+  body.set('value', JSON.stringify(val));
+  await fetch('https://api.textdb.online/update', { method: 'POST', body });
+}
 
 async function loadReports() {
-  if (!BUCKET()) return;
-  try {
-    const reports = await (await fetch(kvR('reports'))).json().catch(() => []);
-    const list = Array.isArray(reports) ? reports : [];
-    $('report-list').innerHTML = list.length ? list.slice().reverse().map(r => `
+  if (!PREFIX()) return;
+  const list = await dbRead('reports');
+  $('report-list').innerHTML = list.length ? list.slice().reverse().map(r => `
       <div class="item-row">
         <div>
           <div class="name">${r.done ? '✅' : '🐞'} ${esc(r.label || 'file')}</div>
@@ -119,14 +128,12 @@ async function loadReports() {
           <button class="danger" data-del-r="${r.t}">Xoá</button>
         </div>
       </div>`).join('') : '<p class="meta">Chưa có báo cáo nào.</p>';
-  } catch { /* mạng lỗi */ }
 }
 
 $('report-list').addEventListener('click', async e => {
   const b = e.target.closest('button');
   if (!b) return;
-  const reports = await (await fetch(kvR('reports'))).json().catch(() => []);
-  const list = Array.isArray(reports) ? reports : [];
+  const list = await dbRead('reports');
   if (b.dataset.done) {
     const r = list.find(x => String(x.t) === b.dataset.done);
     if (r) r.done = true;
@@ -134,7 +141,7 @@ $('report-list').addEventListener('click', async e => {
     const i = list.findIndex(x => String(x.t) === b.dataset.delR);
     if (i > -1) list.splice(i, 1);
   } else return;
-  await fetch(kv('reports'), { method: 'POST', body: JSON.stringify(list) });
+  await dbWrite('reports', list);
   loadReports();
 });
 
@@ -156,13 +163,10 @@ function renderAdminChat() {
 }
 
 async function loadAdminChat() {
-  if (!BUCKET()) return;
+  if (!PREFIX()) return;
   const key = $('chat-room').value || 'chat-main';
-  try {
-    const msgs = await (await fetch(kvR(key))).json().catch(() => []);
-    adminMsgs = Array.isArray(msgs) ? msgs : [];
-    renderAdminChat();
-  } catch { /* mạng lỗi */ }
+  adminMsgs = await dbRead(key);
+  renderAdminChat();
 }
 
 $('chat-room').addEventListener('change', () => { lastAdminJson = ''; loadAdminChat(); });
@@ -178,9 +182,8 @@ $('chat-send').onclick = async () => {
   adminMsgs.push(m);
   renderAdminChat(); // hiện ngay
   try {
-    const msgs = await (await fetch(kvR(key))).json().catch(() => []);
-    const list = (Array.isArray(msgs) ? msgs : []).concat([{ name: m.name, text: m.text, t: m.t, admin: true }]);
-    await fetch(kv(key), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
+    const list = (await dbRead(key)).concat([{ name: m.name, text: m.text, t: m.t, admin: true }]);
+    await dbWrite(key, list.slice(-200));
   } finally {
     m.pending = false;
     loadAdminChat();

@@ -288,10 +288,21 @@ search.addEventListener('input', () => { term = search.value.trim().toLowerCase(
 addEventListener('hashchange', render);
 render();
 
-/* ================= CHAT + BÁO LỖI (kvdb.io) ================= */
-const BUCKET = data.settings.chatBucket;
-const kv = p => `https://kvdb.io/${BUCKET}/${p}`;
-const kvR = p => kv(p) + '?t=' + Date.now(); // GET phải kèm timestamp — kvdb bị browser cache 1 tháng
+/* ================= CHAT + BÁO LỖI (textdb.online — miễn phí, không đăng ký) ================= */
+const PREFIX = data.settings.chatBucket; // prefix lưu trong data.json
+async function dbRead(key) {
+  try {
+    const t = await (await fetch(`https://api.textdb.online/${PREFIX}-${key}?t=${Date.now()}`)).text();
+    const j = JSON.parse(t);
+    return Array.isArray(j) ? j : [];
+  } catch { return []; }
+}
+async function dbWrite(key, val) {
+  const body = new URLSearchParams();
+  body.set('key', `${PREFIX}-${key}`);
+  body.set('value', JSON.stringify(val));
+  await fetch('https://api.textdb.online/update', { method: 'POST', body });
+}
 const chatKey = () => {
   const route = decodeURIComponent(location.hash.replace(/^#\//, ''));
   const fo = route ? data.folders.find(f => slug(f.name) === route) : null;
@@ -323,12 +334,9 @@ function renderChat() {
 }
 
 async function loadChat() {
-  if (!BUCKET) return;
-  try {
-    const msgs = await (await fetch(kvR(chatKey()))).json().catch(() => []);
-    chatMsgs = Array.isArray(msgs) ? msgs : [];
-    renderChat();
-  } catch { /* mạng lỗi — bỏ qua */ }
+  if (!PREFIX) return;
+  chatMsgs = await dbRead(chatKey());
+  renderChat();
 }
 
 async function sendChat() {
@@ -344,9 +352,8 @@ async function sendChat() {
   chatMsgs.push(m);
   renderChat(); // hiện NGAY cho người gửi, không chờ server
   try {
-    const msgs = await (await fetch(kvR(chatKey()))).json().catch(() => []);
-    const list = (Array.isArray(msgs) ? msgs : []).concat([{ name: m.name, text: m.text, t: m.t, admin: false }]);
-    await fetch(kv(chatKey()), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
+    const list = (await dbRead(chatKey())).concat([{ name: m.name, text: m.text, t: m.t, admin: false }]);
+    await dbWrite(chatKey(), list.slice(-200));
   } finally {
     m.pending = false;
     loadChat();
@@ -357,10 +364,9 @@ async function sendChat() {
 async function reportBug(fileId, label) {
   const text = prompt(`Báo lỗi / góp ý cho file "${label}"\nAdmin sẽ thấy trong console:`);
   if (!text || !text.trim()) return;
-  const reports = await (await fetch(kvR('reports'))).json().catch(() => []);
-  const list = Array.isArray(reports) ? reports : [];
+  const list = await dbRead('reports');
   list.push({ fileId, label, text: text.trim().slice(0, 1000), t: Date.now(), done: false });
-  await fetch(kv('reports'), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
+  await dbWrite('reports', list.slice(-200));
   alert('Đã gửi báo cáo cho admin. Cảm ơn bạn!');
 }
 
