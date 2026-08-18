@@ -70,6 +70,12 @@ async function mutate(message, fn) {
 }
 
 const safeName = name => name.replace(/[^\w.\- ]+/g, '_').trim().slice(-80) || 'file';
+const fileToB64 = file => new Promise((res, rej) => {
+  const fr = new FileReader();
+  fr.onload = () => res(fr.result.split(',')[1]);
+  fr.onerror = rej;
+  fr.readAsDataURL(file);
+});
 const slug = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
   .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'muc';
@@ -181,7 +187,8 @@ $('chat-send').onclick = async () => {
 };
 $('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('chat-send').click(); });
 
-let editing = null; // id của mục/file đang mở form sửa
+let editing = null;  // id của mục/file đang mở form sửa
+let updating = null; // id của file đang mở form up version mới
 
 function renderManage() {
   $('manage-list').innerHTML = site.folders.map(fo => `
@@ -207,19 +214,38 @@ function renderManage() {
       </div>` : ''}
     ${fo.files.map(f => `
       <div class="item-row" style="padding-left:26px">
-        <div><div class="name">${esc(f.label)}</div>
-          <div class="meta">${esc(f.ext)} · ${fmtSize(f.size)}${f.description ? ' · ' + esc(f.description.slice(0, 80)) : ''}</div></div>
+        <div><div class="name">${esc(f.label)} <span class="ver-badge">v${f.versions?.length ? f.versions[f.versions.length - 1].v : 1}</span></div>
+          <div class="meta">${esc(f.ext)} · ${fmtSize(f.size)}${f.versions?.length > 1 ? ` · ${f.versions.length} phiên bản` : ''}${f.description ? ' · ' + esc(f.description.slice(0, 80)) : ''}</div></div>
         <div class="row">
+          <button class="small" data-upver-open="${f.id}">⬆ Update</button>
           <button class="small" data-edit-f="${f.id}">Sửa</button>
           <button class="danger" data-del-f="${f.id}">Xoá</button>
         </div>
       </div>
+      ${updating === f.id ? `
+        <div class="edit-form" style="margin-left:26px">
+          <label>File phiên bản mới</label>
+          <input type="file" id="uf-file">
+          <label>Ghi chú cho phiên bản này (không bắt buộc)</label>
+          <input type="text" id="uf-note" maxlength="300" placeholder="vd: fix bug, thêm tính năng…">
+          <div class="row" style="margin-top:12px">
+            <button data-upver="${f.id}">Tải lên phiên bản mới</button>
+            <button class="ghost" data-cancel>Huỷ</button>
+          </div>
+        </div>` : ''}
       ${editing === f.id ? `
         <div class="edit-form" style="margin-left:26px">
           <label>Tên hiển thị</label>
           <input type="text" id="ef-name" maxlength="160" value="${esc(f.label)}">
           <label>Mô tả / ghi chú</label>
           <textarea id="ef-desc" maxlength="2000">${esc(f.description || '')}</textarea>
+          ${f.versions?.length > 1 ? `
+            <label>Các phiên bản</label>
+            ${f.versions.slice().reverse().map(v => `
+              <div class="item-row">
+                <div class="meta">v${v.v} · ${fmtSize(v.size)} · ${new Date(v.uploadedAt).toLocaleDateString('vi-VN')}${v.note ? ' — ' + esc(v.note) : ''}</div>
+                <button class="danger" data-delver="${f.id}:${v.v}">Xoá</button>
+              </div>`).join('')}` : ''}
           <div class="row" style="margin-top:12px">
             <button data-save-f="${f.id}">Lưu</button>
             <button class="ghost" data-cancel>Huỷ</button>
@@ -231,9 +257,53 @@ $('manage-list').addEventListener('click', async e => {
   const b = e.target.closest('button');
   if (!b) return;
   try {
-    if (b.dataset.cancel) { editing = null; renderManage(); return; }
+    if (b.dataset.cancel) { editing = null; updating = null; renderManage(); return; }
+    if (b.dataset.upverOpen) {
+      updating = b.dataset.upverOpen; editing = null;
+      renderManage();
+      $('uf-file')?.focus();
+      return;
+    }
+    if (b.dataset.upver) {
+      const file = $('uf-file').files[0];
+      if (!file) return alert('Hãy chọn file phiên bản mới.');
+      const note = $('uf-note').value.trim();
+      const f = site.folders.flatMap(x => x.files).find(x => x.id === b.dataset.upver);
+      const path = `uploads/${site.folders.find(x => x.files.includes(f)).id}/${Date.now()}-${safeName(file.name)}`;
+      const btn = b; btn.disabled = true; btn.textContent = 'Đang tải…';
+      try {
+        await gh(encodeURI(path), { method: 'PUT', body: JSON.stringify({
+          message: `Update v${(f.versions?.length || 1) + 1}: ${f.label}`,
+          content: await fileToB64(file), branch: auth.branch
+        }) });
+        await mutate(`Update ${f.label} lên v${(f.versions?.length || 1) + 1}`, d => {
+          for (const fo of d.folders) for (const x of fo.files) if (x.id === f.id) {
+            if (!x.versions) x.versions = [{ v: 1, url: x.url, size: x.size, uploadedAt: x.uploadedAt }];
+            x.versions.push({ v: x.versions.length + 1, url: path, size: file.size, uploadedAt: new Date().toISOString(), note: note.slice(0, 300) });
+            const last = x.versions[x.versions.length - 1];
+            x.url = last.url; x.size = last.size; x.uploadedAt = last.uploadedAt; // bản mới nhất = bản chính
+          }
+        });
+        updating = null;
+      } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = 'Tải lên phiên bản mới'; return; }
+    }
+    if (b.dataset.delver) {
+      const [fid, v] = b.dataset.delver.split(':');
+      const f = site.folders.flatMap(x => x.files).find(x => x.id === fid);
+      const ver = f.versions.find(x => x.v === Number(v));
+      if (ver.v === f.versions.length) return alert('Không xoá được phiên bản mới nhất (bản chính). Muốn bỏ file thì dùng nút Xoá.');
+      if (!confirm(`Xoá phiên bản v${v}?`)) return;
+      try {
+        const info = await gh(encodeURI(ver.url));
+        await gh(encodeURI(ver.url), { method: 'DELETE', body: JSON.stringify({ message: `Xoá phiên bản v${v}: ${f.label}`, sha: info.sha, branch: auth.branch }) });
+      } catch { /* đã xoá tay */ }
+      await mutate(`Xoá v${v} của ${f.label}`, d => {
+        for (const fo of d.folders) for (const x of fo.files)
+          if (x.id === fid) x.versions = x.versions.filter(x2 => x2.v !== Number(v));
+      });
+    }
     if (b.dataset.editFo || b.dataset.editF) {
-      editing = b.dataset.editFo || b.dataset.editF;
+      editing = b.dataset.editFo || b.dataset.editF; updating = null;
       renderManage();
       $('ef-name')?.focus();
       return;
@@ -275,11 +345,14 @@ $('manage-list').addEventListener('click', async e => {
       await mutate(`Xoá mục: ${fo.name}`, d => { d.folders = d.folders.filter(f => f.id !== fo.id); });
     } else if (b.dataset.delF) {
       const f = site.folders.flatMap(x => x.files).find(x => x.id === b.dataset.delF);
-      if (!confirm(`Xoá file "${f.label}"?`)) return;
-      try {
-        const info = await gh(encodeURI(f.url));
-        await gh(encodeURI(f.url), { method: 'DELETE', body: JSON.stringify({ message: `Xoá file: ${f.label}`, sha: info.sha, branch: auth.branch }) });
-      } catch { /* đã xoá tay */ }
+      if (!confirm(`Xoá file "${f.label}"${f.versions?.length > 1 ? ` và ${f.versions.length} phiên bản` : ''}?`)) return;
+      const urls = f.versions?.length ? f.versions.map(v => v.url) : [f.url];
+      for (const u of [...new Set(urls)]) {
+        try {
+          const info = await gh(encodeURI(u));
+          await gh(encodeURI(u), { method: 'DELETE', body: JSON.stringify({ message: `Xoá file: ${f.label}`, sha: info.sha, branch: auth.branch }) });
+        } catch { /* đã xoá tay */ }
+      }
       await mutate(`Xoá file: ${f.label}`, d => {
         for (const fo of d.folders) fo.files = fo.files.filter(x => x.id !== f.id);
       });
@@ -365,7 +438,8 @@ $('btn-upload').onclick = async () => {
       id: uid(), label: ($('up-label').value.trim() || file.name).slice(0, 160),
       description: $('up-desc').value.slice(0, 2000),
       ext: (file.name.split('.').pop() || 'file').toUpperCase().slice(0, 6),
-      size: file.size, uploadedAt: new Date().toISOString(), url: path
+      size: file.size, uploadedAt: new Date().toISOString(), url: path,
+      versions: [{ v: 1, url: path, size: file.size, uploadedAt: new Date().toISOString() }]
     };
     await mutate(`Thêm file: ${entry.label}`, d => {
       d.folders.find(f => f.id === folderId).files.push(entry);

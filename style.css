@@ -142,6 +142,19 @@ header, main, footer { position: relative; z-index: 1; }
 }
 .copy:hover { background: rgba(83, 216, 232, .12); }
 
+/* ---------- phiên bản file ---------- */
+.ver-badge {
+  font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--bg);
+  background: var(--cyan); border-radius: 4px; padding: 2px 7px; vertical-align: middle;
+}
+.old-vers { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.old-vers label { font-family: var(--mono); font-size: 11px; color: var(--dim); margin: 0; }
+.ver-select {
+  width: auto; background: rgba(8, 20, 38, .8); color: var(--chalk);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px;
+  font-family: var(--mono); font-size: 12px;
+}
+
 /* ---------- chat widget ---------- */
 #chat-fab {
   position: fixed; right: 22px; bottom: 22px; z-index: 50;

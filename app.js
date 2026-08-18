@@ -191,13 +191,25 @@ const main = document.getElementById('folders');
 const search = document.getElementById('search');
 let term = '';
 
-const fileRow = f => `
+const fileRow = f => {
+  const vers = f.versions || [];
+  const oldVers = vers.slice(0, -1); // các bản cũ (bản cuối = bản chính)
+  return `
   <article class="file-row">
     <div class="file-ico"><span>${esc(f.ext)}</span></div>
     <div class="file-body">
-      <h3>${esc(f.label)}</h3>
+      <h3>${esc(f.label)} <span class="ver-badge">v${vers.length || 1}</span></h3>
       ${f.description ? `<p class="file-desc">${esc(f.description)}</p>` : ''}
-      <p class="file-meta">${fmtSize(f.size)} · ${fmtDate(f.uploadedAt)}</p>
+      <p class="file-meta">${fmtSize(f.size)} · ${fmtDate(f.uploadedAt)}${vers.length > 1 ? ` · ${vers.length} phiên bản` : ''}</p>
+      ${oldVers.length ? `
+        <div class="old-vers">
+          <label>Phiên bản cũ:</label>
+          <select class="ver-select" data-main="${esc(f.url)}">
+            <option value="">— chọn để tải —</option>
+            ${oldVers.slice().reverse().map(v =>
+              `<option value="${esc(v.url)}">v${v.v} · ${fmtSize(v.size)} · ${fmtDate(v.uploadedAt)}${v.note ? ' — ' + esc(v.note) : ''}</option>`).join('')}
+          </select>
+        </div>` : ''}
     </div>
     <div class="file-actions">
       <button class="report" data-fb="${f.id}" data-label="${esc(f.label)}">BÁO LỖI</button>
@@ -205,6 +217,7 @@ const fileRow = f => `
       <a class="dl" href="${esc(f.url)}" download>TẢI VỀ ↓</a>
     </div>
   </article>`;
+};
 
 function render() {
   const route = decodeURIComponent(location.hash.replace(/^#\//, ''));
@@ -250,7 +263,7 @@ function render() {
   }
 }
 
-/* copy link file */
+/* copy link file + chọn phiên bản cũ */
 main.addEventListener('click', async e => {
   const b = e.target.closest('.copy');
   if (!b) return;
@@ -259,6 +272,16 @@ main.addEventListener('click', async e => {
     b.textContent = 'ĐÃ COPY ✓';
     setTimeout(() => b.textContent = 'COPY LINK', 1500);
   } catch { prompt('Copy link này:', new URL(b.dataset.url, location.origin).href); }
+});
+
+main.addEventListener('change', e => {
+  const sel = e.target.closest('.ver-select');
+  if (!sel || !sel.value) return;
+  const a = document.createElement('a');
+  a.href = sel.value;
+  a.download = '';
+  a.click();
+  sel.value = '';
 });
 
 search.addEventListener('input', () => { term = search.value.trim().toLowerCase(); render(); });
