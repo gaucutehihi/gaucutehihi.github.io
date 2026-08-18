@@ -281,18 +281,29 @@ const chatTitle = () => {
 
 let chatName = localStorage.getItem('chat-name') || '';
 let chatTimer = null;
+let chatMsgs = [];      // cache tin nhắn phòng hiện tại
+let lastChatJson = '';
+
+function renderChat() {
+  const box = document.getElementById('chat-box');
+  const json = JSON.stringify(chatMsgs);
+  if (json === lastChatJson) return; // không có gì mới → khỏi vẽ lại
+  lastChatJson = json;
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  box.innerHTML = chatMsgs.map(m => `
+    <div class="chat-msg${m.admin ? ' admin' : ''}${m.pending ? ' pending' : ''}">
+      <span class="chat-who">${esc(m.name)}${m.admin ? ' <em>ADMIN</em>' : ''} · ${new Date(m.t).toLocaleString('vi-VN')}</span>
+      <span class="chat-text">${esc(m.text)}</span>
+    </div>`).join('') || '<p class="chat-empty">Chưa có tin nhắn. Nhắn gì đó đi!</p>';
+  if (nearBottom) box.scrollTop = box.scrollHeight;
+}
 
 async function loadChat() {
   if (!BUCKET) return;
   try {
     const msgs = await (await fetch(kv(chatKey()))).json().catch(() => []);
-    const box = document.getElementById('chat-box');
-    box.innerHTML = (Array.isArray(msgs) ? msgs : []).map(m => `
-      <div class="chat-msg${m.admin ? ' admin' : ''}">
-        <span class="chat-who">${esc(m.name)}${m.admin ? ' <em>ADMIN</em>' : ''} · ${new Date(m.t).toLocaleString('vi-VN')}</span>
-        <span class="chat-text">${esc(m.text)}</span>
-      </div>`).join('') || '<p class="chat-empty">Chưa có tin nhắn. Nhắn gì đó đi!</p>';
-    box.scrollTop = box.scrollHeight;
+    chatMsgs = Array.isArray(msgs) ? msgs : [];
+    renderChat();
   } catch { /* mạng lỗi — bỏ qua */ }
 }
 
@@ -305,11 +316,17 @@ async function sendChat() {
     localStorage.setItem('chat-name', chatName);
   }
   input.value = '';
-  const msgs = await (await fetch(kv(chatKey()))).json().catch(() => []);
-  const list = Array.isArray(msgs) ? msgs : [];
-  list.push({ name: chatName.slice(0, 40), text: text.slice(0, 1000), t: Date.now(), admin: false });
-  await fetch(kv(chatKey()), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
-  loadChat();
+  const m = { name: chatName.slice(0, 40), text: text.slice(0, 1000), t: Date.now(), admin: false, pending: true };
+  chatMsgs.push(m);
+  renderChat(); // hiện NGAY cho người gửi, không chờ server
+  try {
+    const msgs = await (await fetch(kv(chatKey()))).json().catch(() => []);
+    const list = (Array.isArray(msgs) ? msgs : []).concat([{ name: m.name, text: m.text, t: m.t, admin: false }]);
+    await fetch(kv(chatKey()), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
+  } finally {
+    m.pending = false;
+    loadChat();
+  }
 }
 
 /* báo lỗi file */
@@ -339,16 +356,22 @@ chatPanel.innerHTML = `
   <div class="chat-input"><input id="chat-input" maxlength="1000" placeholder="Nhắn tin…"><button id="chat-send">Gửi</button></div>`;
 document.body.appendChild(chatPanel);
 
-chatFab.onclick = () => {
-  chatPanel.hidden = !chatPanel.hidden;
-  if (!chatPanel.hidden) {
-    document.getElementById('chat-title').textContent = 'Chat — ' + chatTitle();
-    loadChat();
-    clearInterval(chatTimer);
-    chatTimer = setInterval(loadChat, 8000); // tự refresh mỗi 8s
-  } else clearInterval(chatTimer);
-};
-document.getElementById('chat-close').onclick = () => chatFab.click();
+function openChat() {
+  chatPanel.hidden = false;
+  sessionStorage.setItem('chat-open', '1'); // nhớ trạng thái sau khi F5
+  document.getElementById('chat-title').textContent = 'Chat — ' + chatTitle();
+  lastChatJson = '';
+  loadChat();
+  clearInterval(chatTimer);
+  chatTimer = setInterval(loadChat, 1500); // cập nhật nhanh mỗi 1.5s
+}
+function closeChat() {
+  chatPanel.hidden = true;
+  sessionStorage.setItem('chat-open', '0');
+  clearInterval(chatTimer);
+}
+chatFab.onclick = () => chatPanel.hidden ? openChat() : closeChat();
+document.getElementById('chat-close').onclick = closeChat;
 document.getElementById('chat-send').onclick = sendChat;
 document.getElementById('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
 
@@ -362,6 +385,10 @@ main.addEventListener('click', e => {
 addEventListener('hashchange', () => {
   if (!chatPanel.hidden) {
     document.getElementById('chat-title').textContent = 'Chat — ' + chatTitle();
+    lastChatJson = '';
     loadChat();
   }
 });
+
+/* F5 xong vẫn mở lại chat nếu trước đó đang mở */
+if (sessionStorage.getItem('chat-open') === '1') openChat();

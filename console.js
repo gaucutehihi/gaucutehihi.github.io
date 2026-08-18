@@ -81,6 +81,7 @@ async function refresh() {
   site = (await getData()).data;
   $('set-title').value = site.settings.title;
   $('set-tagline').value = site.settings.tagline;
+  $('set-bucket').value = site.settings.chatBucket || '';
   $('up-folder').innerHTML = site.folders.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('')
     || '<option value="">— tạo mục trước —</option>';
   $('chat-room').innerHTML = '<option value="chat-main">Chung (trang chủ)</option>' +
@@ -131,22 +132,34 @@ $('report-list').addEventListener('click', async e => {
 });
 
 /* ---------- chat admin ---------- */
+let adminMsgs = [];
+let lastAdminJson = '';
+
+function renderAdminChat() {
+  const json = JSON.stringify(adminMsgs);
+  if (json === lastAdminJson) return;
+  lastAdminJson = json;
+  const box = $('chat-box');
+  box.innerHTML = adminMsgs.map(m => `
+    <div class="chat-msg${m.admin ? ' admin' : ''}${m.pending ? ' pending' : ''}">
+      <span class="chat-who">${esc(m.name)}${m.admin ? ' <em>ADMIN</em>' : ''} · ${new Date(m.t).toLocaleString('vi-VN')}</span>
+      <span class="chat-text">${esc(m.text)}</span>
+    </div>`).join('') || '<p class="chat-empty">Chưa có tin nhắn.</p>';
+  box.scrollTop = box.scrollHeight;
+}
+
 async function loadAdminChat() {
   if (!BUCKET()) return;
   const key = $('chat-room').value || 'chat-main';
   try {
     const msgs = await (await fetch(kv(key))).json().catch(() => []);
-    $('chat-box').innerHTML = (Array.isArray(msgs) ? msgs : []).map(m => `
-      <div class="chat-msg${m.admin ? ' admin' : ''}">
-        <span class="chat-who">${esc(m.name)}${m.admin ? ' <em>ADMIN</em>' : ''} · ${new Date(m.t).toLocaleString('vi-VN')}</span>
-        <span class="chat-text">${esc(m.text)}</span>
-      </div>`).join('') || '<p class="chat-empty">Chưa có tin nhắn.</p>';
-    $('chat-box').scrollTop = $('chat-box').scrollHeight;
+    adminMsgs = Array.isArray(msgs) ? msgs : [];
+    renderAdminChat();
   } catch { /* mạng lỗi */ }
 }
 
-$('chat-room').addEventListener('change', loadAdminChat);
-setInterval(() => { if (!$('admin-view').hidden) { loadAdminChat(); loadReports(); } }, 10000);
+$('chat-room').addEventListener('change', () => { lastAdminJson = ''; loadAdminChat(); });
+setInterval(() => { if (!$('admin-view').hidden) { loadAdminChat(); loadReports(); } }, 4000);
 
 $('chat-send').onclick = async () => {
   const input = $('chat-input');
@@ -154,11 +167,17 @@ $('chat-send').onclick = async () => {
   if (!text) return;
   input.value = '';
   const key = $('chat-room').value || 'chat-main';
-  const msgs = await (await fetch(kv(key))).json().catch(() => []);
-  const list = Array.isArray(msgs) ? msgs : [];
-  list.push({ name: 'Admin', text: text.slice(0, 1000), t: Date.now(), admin: true });
-  await fetch(kv(key), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
-  loadAdminChat();
+  const m = { name: 'Admin', text: text.slice(0, 1000), t: Date.now(), admin: true, pending: true };
+  adminMsgs.push(m);
+  renderAdminChat(); // hiện ngay
+  try {
+    const msgs = await (await fetch(kv(key))).json().catch(() => []);
+    const list = (Array.isArray(msgs) ? msgs : []).concat([{ name: m.name, text: m.text, t: m.t, admin: true }]);
+    await fetch(kv(key), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
+  } finally {
+    m.pending = false;
+    loadAdminChat();
+  }
 };
 $('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('chat-send').click(); });
 
@@ -300,6 +319,8 @@ $('btn-settings').onclick = async () => {
     await mutate('Cập nhật cài đặt trang', d => {
       d.settings.title = $('set-title').value.slice(0, 120) || d.settings.title;
       d.settings.tagline = $('set-tagline').value.slice(0, 300);
+      const b = $('set-bucket').value.trim();
+      if (b) d.settings.chatBucket = b;
     });
     msg($('settings-msg'), 'Đã lưu.');
   } catch (err) { msg($('settings-msg'), err.message, false); }
