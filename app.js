@@ -200,6 +200,7 @@ const fileRow = f => `
       <p class="file-meta">${fmtSize(f.size)} · ${fmtDate(f.uploadedAt)}</p>
     </div>
     <div class="file-actions">
+      <button class="report" data-fb="${f.id}" data-label="${esc(f.label)}">BÁO LỖI</button>
       <button class="copy" data-url="${esc(f.url)}">COPY LINK</button>
       <a class="dl" href="${esc(f.url)}" download>TẢI VỀ ↓</a>
     </div>
@@ -263,3 +264,104 @@ main.addEventListener('click', async e => {
 search.addEventListener('input', () => { term = search.value.trim().toLowerCase(); render(); });
 addEventListener('hashchange', render);
 render();
+
+/* ================= CHAT + BÁO LỖI (kvdb.io) ================= */
+const BUCKET = data.settings.chatBucket;
+const kv = p => `https://kvdb.io/${BUCKET}/${p}`;
+const chatKey = () => {
+  const route = decodeURIComponent(location.hash.replace(/^#\//, ''));
+  const fo = route ? data.folders.find(f => slug(f.name) === route) : null;
+  return fo ? 'chat-' + fo.id : 'chat-main';
+};
+const chatTitle = () => {
+  const route = decodeURIComponent(location.hash.replace(/^#\//, ''));
+  const fo = route ? data.folders.find(f => slug(f.name) === route) : null;
+  return fo ? 'Mục: ' + fo.name : 'Chung';
+};
+
+let chatName = localStorage.getItem('chat-name') || '';
+let chatTimer = null;
+
+async function loadChat() {
+  if (!BUCKET) return;
+  try {
+    const msgs = await (await fetch(kv(chatKey()))).json().catch(() => []);
+    const box = document.getElementById('chat-box');
+    box.innerHTML = (Array.isArray(msgs) ? msgs : []).map(m => `
+      <div class="chat-msg${m.admin ? ' admin' : ''}">
+        <span class="chat-who">${esc(m.name)}${m.admin ? ' <em>ADMIN</em>' : ''} · ${new Date(m.t).toLocaleString('vi-VN')}</span>
+        <span class="chat-text">${esc(m.text)}</span>
+      </div>`).join('') || '<p class="chat-empty">Chưa có tin nhắn. Nhắn gì đó đi!</p>';
+    box.scrollTop = box.scrollHeight;
+  } catch { /* mạng lỗi — bỏ qua */ }
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!chatName) {
+    chatName = (prompt('Bạn tên gì để hiện trong chat?') || '').trim() || 'Khách';
+    localStorage.setItem('chat-name', chatName);
+  }
+  input.value = '';
+  const msgs = await (await fetch(kv(chatKey()))).json().catch(() => []);
+  const list = Array.isArray(msgs) ? msgs : [];
+  list.push({ name: chatName.slice(0, 40), text: text.slice(0, 1000), t: Date.now(), admin: false });
+  await fetch(kv(chatKey()), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
+  loadChat();
+}
+
+/* báo lỗi file */
+async function reportBug(fileId, label) {
+  const text = prompt(`Báo lỗi / góp ý cho file "${label}"\nAdmin sẽ thấy trong console:`);
+  if (!text || !text.trim()) return;
+  const reports = await (await fetch(kv('reports'))).json().catch(() => []);
+  const list = Array.isArray(reports) ? reports : [];
+  list.push({ fileId, label, text: text.trim().slice(0, 1000), t: Date.now(), done: false });
+  await fetch(kv('reports'), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
+  alert('Đã gửi báo cáo cho admin. Cảm ơn bạn!');
+}
+
+/* widget chat */
+const chatFab = document.createElement('button');
+chatFab.id = 'chat-fab';
+chatFab.textContent = '💬';
+chatFab.title = 'Chat / góp ý';
+document.body.appendChild(chatFab);
+
+const chatPanel = document.createElement('div');
+chatPanel.id = 'chat-panel';
+chatPanel.hidden = true;
+chatPanel.innerHTML = `
+  <div class="chat-head"><b id="chat-title">Chat</b><button id="chat-close">✕</button></div>
+  <div id="chat-box" class="chat-box"></div>
+  <div class="chat-input"><input id="chat-input" maxlength="1000" placeholder="Nhắn tin…"><button id="chat-send">Gửi</button></div>`;
+document.body.appendChild(chatPanel);
+
+chatFab.onclick = () => {
+  chatPanel.hidden = !chatPanel.hidden;
+  if (!chatPanel.hidden) {
+    document.getElementById('chat-title').textContent = 'Chat — ' + chatTitle();
+    loadChat();
+    clearInterval(chatTimer);
+    chatTimer = setInterval(loadChat, 8000); // tự refresh mỗi 8s
+  } else clearInterval(chatTimer);
+};
+document.getElementById('chat-close').onclick = () => chatFab.click();
+document.getElementById('chat-send').onclick = sendChat;
+document.getElementById('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+/* bấm nút BÁO LỖI */
+main.addEventListener('click', e => {
+  const b = e.target.closest('.report');
+  if (b) reportBug(b.dataset.fb, b.dataset.label);
+});
+
+/* đổi trang → đổi kênh chat */
+addEventListener('hashchange', () => {
+  if (!chatPanel.hidden) {
+    document.getElementById('chat-title').textContent = 'Chat — ' + chatTitle();
+    loadChat();
+  }
+});

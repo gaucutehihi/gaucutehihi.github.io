@@ -83,8 +83,84 @@ async function refresh() {
   $('set-tagline').value = site.settings.tagline;
   $('up-folder').innerHTML = site.folders.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('')
     || '<option value="">— tạo mục trước —</option>';
+  $('chat-room').innerHTML = '<option value="chat-main">Chung (trang chủ)</option>' +
+    site.folders.map(f => `<option value="chat-${f.id}">Mục: ${esc(f.name)}</option>`).join('');
   renderManage();
+  loadReports();
+  loadAdminChat();
 }
+
+/* ---------- báo lỗi từ khách ---------- */
+const BUCKET = () => site?.settings.chatBucket;
+const kv = p => `https://kvdb.io/${BUCKET()}/${p}`;
+
+async function loadReports() {
+  if (!BUCKET()) return;
+  try {
+    const reports = await (await fetch(kv('reports'))).json().catch(() => []);
+    const list = Array.isArray(reports) ? reports : [];
+    $('report-list').innerHTML = list.length ? list.slice().reverse().map(r => `
+      <div class="item-row">
+        <div>
+          <div class="name">${r.done ? '✅' : '🐞'} ${esc(r.label || 'file')}</div>
+          <div class="meta">${esc(r.text)}</div>
+          <div class="meta">${new Date(r.t).toLocaleString('vi-VN')}</div>
+        </div>
+        <div class="row">
+          ${r.done ? '' : `<button class="small" data-done="${r.t}">Đã xử lý</button>`}
+          <button class="danger" data-del-r="${r.t}">Xoá</button>
+        </div>
+      </div>`).join('') : '<p class="meta">Chưa có báo cáo nào.</p>';
+  } catch { /* mạng lỗi */ }
+}
+
+$('report-list').addEventListener('click', async e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const reports = await (await fetch(kv('reports'))).json().catch(() => []);
+  const list = Array.isArray(reports) ? reports : [];
+  if (b.dataset.done) {
+    const r = list.find(x => String(x.t) === b.dataset.done);
+    if (r) r.done = true;
+  } else if (b.dataset.delR) {
+    const i = list.findIndex(x => String(x.t) === b.dataset.delR);
+    if (i > -1) list.splice(i, 1);
+  } else return;
+  await fetch(kv('reports'), { method: 'POST', body: JSON.stringify(list) });
+  loadReports();
+});
+
+/* ---------- chat admin ---------- */
+async function loadAdminChat() {
+  if (!BUCKET()) return;
+  const key = $('chat-room').value || 'chat-main';
+  try {
+    const msgs = await (await fetch(kv(key))).json().catch(() => []);
+    $('chat-box').innerHTML = (Array.isArray(msgs) ? msgs : []).map(m => `
+      <div class="chat-msg${m.admin ? ' admin' : ''}">
+        <span class="chat-who">${esc(m.name)}${m.admin ? ' <em>ADMIN</em>' : ''} · ${new Date(m.t).toLocaleString('vi-VN')}</span>
+        <span class="chat-text">${esc(m.text)}</span>
+      </div>`).join('') || '<p class="chat-empty">Chưa có tin nhắn.</p>';
+    $('chat-box').scrollTop = $('chat-box').scrollHeight;
+  } catch { /* mạng lỗi */ }
+}
+
+$('chat-room').addEventListener('change', loadAdminChat);
+setInterval(() => { if (!$('admin-view').hidden) { loadAdminChat(); loadReports(); } }, 10000);
+
+$('chat-send').onclick = async () => {
+  const input = $('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const key = $('chat-room').value || 'chat-main';
+  const msgs = await (await fetch(kv(key))).json().catch(() => []);
+  const list = Array.isArray(msgs) ? msgs : [];
+  list.push({ name: 'Admin', text: text.slice(0, 1000), t: Date.now(), admin: true });
+  await fetch(kv(key), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
+  loadAdminChat();
+};
+$('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('chat-send').click(); });
 
 let editing = null; // id của mục/file đang mở form sửa
 

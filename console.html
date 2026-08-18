@@ -71,6 +71,22 @@
     </div>
 
     <div class="panel">
+      <h2>Báo lỗi từ khách</h2>
+      <div id="report-list"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Chat với khách</h2>
+      <label for="chat-room">Phòng chat</label>
+      <select id="chat-room"></select>
+      <div id="chat-box" class="chat-box" style="height:260px;border:1px solid var(--line);border-radius:10px;margin-top:12px"></div>
+      <div class="chat-input" style="padding:10px 0 0">
+        <input type="text" id="chat-input" maxlength="1000" placeholder="Trả lời với tư cách ADMIN…">
+        <button id="chat-send">Gửi</button>
+      </div>
+    </div>
+
+    <div class="panel">
       <h2>Quản lý</h2>
       <div id="manage-list"></div>
     </div>
