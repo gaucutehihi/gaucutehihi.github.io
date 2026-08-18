@@ -94,6 +94,54 @@ header, main, footer { position: relative; z-index: 1; }
 }
 .dl:hover { background: rgba(255, 107, 53, .14); }
 
+/* ---------- tìm kiếm ---------- */
+.search {
+  margin-top: 30px; max-width: 380px; width: 100%;
+  background: rgba(8, 20, 38, .8); color: var(--chalk);
+  border: 1px solid var(--line); border-radius: 99px; padding: 11px 20px;
+  font-family: var(--body); font-size: 14px;
+}
+.search:focus { outline: 2px solid var(--cyan); outline-offset: 1px; }
+
+/* ---------- lưới folder mini (trang chủ) ---------- */
+.folders-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 16px; margin-top: 20px;
+}
+.folder-mini {
+  display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: var(--chalk);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 4px 14px 14px 14px;
+  padding: 22px 20px; position: relative;
+  transition: transform .18s ease, border-color .18s ease;
+}
+.folder-mini::before { /* tai folder */
+  content: ""; position: absolute; top: -11px; left: 16px;
+  width: 92px; height: 11px; background: var(--panel);
+  border: 1px solid var(--line); border-bottom: 0; border-radius: 7px 7px 0 0;
+}
+.folder-mini:hover { transform: translateY(-4px); border-color: rgba(255, 107, 53, .55); }
+.folder-mini .folder-ico { color: var(--accent); }
+.folder-mini .fm-name { font-family: var(--display); font-weight: 700; font-size: 18px; overflow-wrap: anywhere; }
+.folder-mini .count {
+  align-self: flex-start; font-family: var(--mono); font-size: 11px; color: var(--dim);
+  border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px;
+}
+
+/* ---------- breadcrumb ---------- */
+.crumb { display: flex; gap: 10px; align-items: center; margin: 26px 0 0; font-family: var(--mono); font-size: 13px; color: var(--dim); }
+.crumb a { color: var(--cyan); text-decoration: none; }
+.crumb b { color: var(--chalk); font-weight: 600; }
+
+/* ---------- nút copy link ---------- */
+.file-actions { display: flex; flex-direction: column; gap: 8px; align-self: center; }
+.copy {
+  font-family: var(--mono); font-size: 11px; font-weight: 600; cursor: pointer;
+  background: transparent; color: var(--cyan); border: 1px solid rgba(83, 216, 232, .4);
+  border-radius: 6px; padding: 7px 12px; margin: 0;
+  transition: background .15s ease;
+}
+.copy:hover { background: rgba(83, 216, 232, .12); }
+
 .empty { color: var(--dim); border: 1px dashed var(--line); border-radius: 10px; padding: 40px; text-align: center; margin-top: 40px; }
 .foot { padding: 60px 20px 30px; color: var(--dim); font-family: var(--mono); font-size: 12px; }
 

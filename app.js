@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-/* ---------- 3D hero: icon công nghệ bay vòng quanh + hạt, parallax theo chuột ---------- */
+/* ---------- 3D: logo công nghệ bay quanh + hệ mặt trời nhỏ, parallax chuột ---------- */
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const canvas = document.getElementById('bg3d');
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -10,7 +10,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
 camera.position.z = 7;
 
-/* logo thật (SVG từ simple-icons) → texture sprite; lỗi mạng thì fallback chữ */
+/* --- logo thật (SVG simple-icons) → sprite; lỗi mạng fallback chữ --- */
 function textTexture(label, color) {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
@@ -53,10 +53,10 @@ for (const [slug, color] of TECHS) {
   const s = 0.7 + Math.random() * 0.45;
   sp.scale.set(s, s, 1);
   sp.userData = {
-    r: 2.6 + Math.random() * 2.4,          // bán kính quỹ đạo
+    r: 3.4 + Math.random() * 2.2,
     a: (icons.length / TECHS.length) * Math.PI * 2,
-    sp: 0.00012 + Math.random() * 0.00018, // tốc độ quay
-    y: (Math.random() - 0.5) * 3.4,
+    sp: 0.00012 + Math.random() * 0.00018,
+    y: (Math.random() - 0.5) * 3.6,
     bob: Math.random() * Math.PI * 2
   };
   scene.add(sp);
@@ -64,6 +64,63 @@ for (const [slug, color] of TECHS) {
   logoTexture(slug, color).then(tex => { sp.material.map = tex; sp.material.needsUpdate = true; });
 }
 
+/* --- hệ mặt trời nhỏ (góc phải hero) --- */
+function glowTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255, 200, 90, .9)');
+  gr.addColorStop(0.4, 'rgba(255, 160, 60, .35)');
+  gr.addColorStop(1, 'rgba(255, 140, 40, 0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+
+const solar = new THREE.Group();
+solar.position.set(3.2, 0.7, 0);
+solar.rotation.x = 0.35;
+scene.add(solar);
+
+const sun = new THREE.Mesh(
+  new THREE.SphereGeometry(0.3, 24, 24),
+  new THREE.MeshBasicMaterial({ color: 0xffc94d })
+);
+solar.add(sun);
+const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), transparent: true, opacity: 0.85, depthWrite: false }));
+glow.scale.set(1.7, 1.7, 1);
+solar.add(glow);
+
+const PLANETS = [
+  { r: 0.58, s: 0.045, c: 0x9fb8d8, sp: 0.0011 },
+  { r: 0.82, s: 0.065, c: 0x53d8e8, sp: 0.00075 },
+  { r: 1.08, s: 0.055, c: 0xff8c5a, sp: 0.0005 },
+  { r: 1.38, s: 0.085, c: 0xd8c39f, sp: 0.00034, ring: true }
+];
+const planets = PLANETS.map(p => {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(p.s, 16, 16), new THREE.MeshBasicMaterial({ color: p.c }));
+  if (p.ring) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(p.s * 1.5, p.s * 2.3, 32),
+      new THREE.MeshBasicMaterial({ color: 0xcbb98a, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+    );
+    ring.rotation.x = Math.PI / 2.4;
+    m.add(ring);
+  }
+  // quỹ đạo
+  const orbitPts = [];
+  for (let i = 0; i <= 64; i++) {
+    const a = (i / 64) * Math.PI * 2;
+    orbitPts.push(new THREE.Vector3(Math.cos(a) * p.r, 0, Math.sin(a) * p.r));
+  }
+  solar.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(orbitPts),
+    new THREE.LineBasicMaterial({ color: 0x8fa5c9, transparent: true, opacity: 0.18 })
+  ));
+  solar.add(m);
+  return { mesh: m, ...p, a: Math.random() * Math.PI * 2 };
+});
+
+/* --- hạt sao --- */
 const N = 500;
 const pos = new Float32Array(N * 3);
 for (let i = 0; i < N * 3; i++) pos[i] = (Math.random() - 0.5) * 22;
@@ -92,8 +149,14 @@ function tick(t) {
     const u = sp.userData;
     const a = u.a + t * u.sp;
     sp.position.set(Math.cos(a) * u.r, u.y + Math.sin(t * 0.0006 + u.bob) * 0.35, Math.sin(a) * u.r * 0.55);
-    sp.material.opacity = 0.55 + 0.35 * ((Math.sin(a) + 1) / 2); // icon phía sau mờ hơn
+    sp.material.opacity = 0.55 + 0.35 * ((Math.sin(a) + 1) / 2);
   }
+  sun.rotation.y = t * 0.0002;
+  for (const p of planets) {
+    const a = p.a + t * p.sp;
+    p.mesh.position.set(Math.cos(a) * p.r, 0, Math.sin(a) * p.r);
+  }
+  solar.rotation.y = t * 0.00004;
   pts.rotation.y = t * 0.00003;
   camera.position.x += (mx * 0.6 - camera.position.x) * 0.04;
   camera.position.y += (-my * 0.4 - camera.position.y) * 0.04;
@@ -103,10 +166,13 @@ function tick(t) {
 }
 requestAnimationFrame(tick);
 
-/* ---------- dữ liệu (data.json do console admin cập nhật) ---------- */
+/* ---------- dữ liệu + routing ---------- */
 const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 const fmtDate = s => new Date(s).toLocaleDateString('vi-VN');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const slug = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'muc';
 
 const data = await (await fetch('data.json?t=' + Date.now())).json();
 
@@ -119,31 +185,81 @@ const totalFiles = data.folders.reduce((n, f) => n + f.files.length, 0);
 document.getElementById('hero-stats').innerHTML =
   `<div><b>${data.folders.length}</b>mục</div><div><b>${totalFiles}</b>file</div>`;
 
-const FOLDER_SVG = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l2 2.4H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+const FOLDER_SVG = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l2 2.4H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
 
 const main = document.getElementById('folders');
-if (!data.folders.length) {
-  main.innerHTML = '<div class="empty">Chưa có mục nào. Đăng nhập console admin để tạo mục và tải file lên.</div>';
-} else {
-  main.innerHTML = data.folders.map((fo, i) => `
-    <section class="folder-card">
-      <div class="folder-tab">
-        <span class="folder-ico">${FOLDER_SVG}</span>
-        <h2>${esc(fo.name)}</h2>
-        <span class="count">${fo.files.length} file</span>
-      </div>
-      ${fo.description ? `<p class="folder-desc">${esc(fo.description)}</p>` : ''}
-      <div class="file-list">
-        ${fo.files.map(f => `
-          <article class="file-row">
-            <div class="file-ico"><span>${esc(f.ext)}</span></div>
-            <div class="file-body">
-              <h3>${esc(f.label)}</h3>
-              ${f.description ? `<p class="file-desc">${esc(f.description)}</p>` : ''}
-              <p class="file-meta">${fmtSize(f.size)} · ${fmtDate(f.uploadedAt)}</p>
-            </div>
-            <a class="dl" href="${esc(f.url)}" download>TẢI VỀ ↓</a>
-          </article>`).join('') || '<p class="folder-desc">Mục này chưa có file.</p>'}
-      </div>
-    </section>`).join('');
+const search = document.getElementById('search');
+let term = '';
+
+const fileRow = f => `
+  <article class="file-row">
+    <div class="file-ico"><span>${esc(f.ext)}</span></div>
+    <div class="file-body">
+      <h3>${esc(f.label)}</h3>
+      ${f.description ? `<p class="file-desc">${esc(f.description)}</p>` : ''}
+      <p class="file-meta">${fmtSize(f.size)} · ${fmtDate(f.uploadedAt)}</p>
+    </div>
+    <div class="file-actions">
+      <button class="copy" data-url="${esc(f.url)}">COPY LINK</button>
+      <a class="dl" href="${esc(f.url)}" download>TẢI VỀ ↓</a>
+    </div>
+  </article>`;
+
+function render() {
+  const route = decodeURIComponent(location.hash.replace(/^#\//, ''));
+  const fo = route ? data.folders.find(f => slug(f.name) === route) : null;
+
+  if (route && !fo) {
+    main.innerHTML = '<div class="empty">Không tìm thấy mục này. <a href="/">← Về trang chủ</a></div>';
+    return;
+  }
+
+  if (fo) { /* ---- trang chi tiết mục ---- */
+    document.title = fo.name + ' — ' + data.settings.title;
+    search.placeholder = 'Tìm file trong mục này…';
+    const files = fo.files.filter(f =>
+      !term || (f.label + ' ' + (f.description || '')).toLowerCase().includes(term));
+    main.innerHTML = `
+      <nav class="crumb"><a href="./">← Trang chủ</a><span>/</span><b>${esc(fo.name)}</b></nav>
+      <section class="folder-card">
+        <div class="folder-tab">
+          <span class="folder-ico">${FOLDER_SVG}</span>
+          <h2>${esc(fo.name)}</h2>
+          <span class="count">${fo.files.length} file</span>
+        </div>
+        ${fo.description ? `<p class="folder-desc">${esc(fo.description)}</p>` : ''}
+        <div class="file-list">
+          ${files.map(fileRow).join('') || '<p class="folder-desc">' + (term ? 'Không có file nào khớp.' : 'Mục này chưa có file.') + '</p>'}
+        </div>
+      </section>`;
+  } else { /* ---- trang chủ: lưới folder ---- */
+    document.title = data.settings.title;
+    search.placeholder = 'Tìm mục…';
+    const folders = data.folders.filter(f => !term || f.name.toLowerCase().includes(term));
+    main.innerHTML = folders.length ? `
+      <div class="folders-grid">
+        ${folders.map(f => `
+          <a class="folder-mini" href="${esc(slug(f.name))}">
+            <span class="folder-ico">${FOLDER_SVG}</span>
+            <span class="fm-name">${esc(f.name)}</span>
+            <span class="count">${f.files.length} file</span>
+          </a>`).join('')}
+      </div>`
+      : `<div class="empty">${term ? 'Không có mục nào khớp.' : 'Chưa có mục nào. Đăng nhập console admin để tạo mục và tải file lên.'}</div>`;
+  }
 }
+
+/* copy link file */
+main.addEventListener('click', async e => {
+  const b = e.target.closest('.copy');
+  if (!b) return;
+  try {
+    await navigator.clipboard.writeText(new URL(b.dataset.url, location.origin + location.pathname).href);
+    b.textContent = 'ĐÃ COPY ✓';
+    setTimeout(() => b.textContent = 'COPY LINK', 1500);
+  } catch { prompt('Copy link này:', new URL(b.dataset.url, location.origin).href); }
+});
+
+search.addEventListener('input', () => { term = search.value.trim().toLowerCase(); render(); });
+addEventListener('hashchange', render);
+render();

@@ -1,0 +1,11 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Đang chuyển…</title>
+<script>
+/* GitHub Pages SPA trick: /ten-muc → /#/ten-muc
+   (chạy đúng cả user-site lẫn project-page) */
+var p = location.pathname.replace(/\/+$/, '');
+var slug = p.split('/').pop();
+var dir = p.slice(0, p.lastIndexOf('/') + 1);
+location.replace(dir + (slug ? '#/' + encodeURIComponent(slug) : ''));
+</script>

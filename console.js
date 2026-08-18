@@ -70,6 +70,9 @@ async function mutate(message, fn) {
 }
 
 const safeName = name => name.replace(/[^\w.\- ]+/g, '_').trim().slice(-80) || 'file';
+const slug = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'muc';
 
 /* ---------- UI ---------- */
 let site = null;
@@ -89,6 +92,7 @@ function renderManage() {
       <div><div class="name">📁 ${esc(fo.name)}</div>
         <div class="meta">${fo.files.length} file${fo.description ? ' · ' + esc(fo.description.slice(0, 80)) : ''}</div></div>
       <div class="row">
+        <button class="small" data-copy-fo="${fo.id}">Copy link</button>
         <button class="small" data-edit-fo="${fo.id}">Sửa</button>
         <button class="danger" data-del-fo="${fo.id}">Xoá mục</button>
       </div>
@@ -108,6 +112,13 @@ $('manage-list').addEventListener('click', async e => {
   const b = e.target.closest('button');
   if (!b) return;
   try {
+    if (b.dataset.copyFo) {
+      const fo = site.folders.find(f => f.id === b.dataset.copyFo);
+      const url = new URL(slug(fo.name), location.href.replace(/console\.html.*$/, '')).href;
+      try { await navigator.clipboard.writeText(url); } catch { prompt('Link của mục:', url); }
+      b.textContent = 'Đã copy ✓'; setTimeout(() => b.textContent = 'Copy link', 1500);
+      return;
+    }
     if (b.dataset.delFo) {
       const fo = site.folders.find(f => f.id === b.dataset.delFo);
       if (!confirm(`Xoá mục "${fo.name}" và ${fo.files.length} file bên trong? File trên repo sẽ xoá cùng lúc.`)) return;
