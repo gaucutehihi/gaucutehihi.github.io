@@ -100,11 +100,12 @@ async function refresh() {
 /* ---------- báo lỗi từ khách ---------- */
 const BUCKET = () => site?.settings.chatBucket;
 const kv = p => `https://kvdb.io/${BUCKET()}/${p}`;
+const kvR = p => kv(p) + '?t=' + Date.now(); // GET kèm timestamp — kvdb bị browser cache 1 tháng
 
 async function loadReports() {
   if (!BUCKET()) return;
   try {
-    const reports = await (await fetch(kv('reports'))).json().catch(() => []);
+    const reports = await (await fetch(kvR('reports'))).json().catch(() => []);
     const list = Array.isArray(reports) ? reports : [];
     $('report-list').innerHTML = list.length ? list.slice().reverse().map(r => `
       <div class="item-row">
@@ -124,7 +125,7 @@ async function loadReports() {
 $('report-list').addEventListener('click', async e => {
   const b = e.target.closest('button');
   if (!b) return;
-  const reports = await (await fetch(kv('reports'))).json().catch(() => []);
+  const reports = await (await fetch(kvR('reports'))).json().catch(() => []);
   const list = Array.isArray(reports) ? reports : [];
   if (b.dataset.done) {
     const r = list.find(x => String(x.t) === b.dataset.done);
@@ -158,7 +159,7 @@ async function loadAdminChat() {
   if (!BUCKET()) return;
   const key = $('chat-room').value || 'chat-main';
   try {
-    const msgs = await (await fetch(kv(key))).json().catch(() => []);
+    const msgs = await (await fetch(kvR(key))).json().catch(() => []);
     adminMsgs = Array.isArray(msgs) ? msgs : [];
     renderAdminChat();
   } catch { /* mạng lỗi */ }
@@ -177,7 +178,7 @@ $('chat-send').onclick = async () => {
   adminMsgs.push(m);
   renderAdminChat(); // hiện ngay
   try {
-    const msgs = await (await fetch(kv(key))).json().catch(() => []);
+    const msgs = await (await fetch(kvR(key))).json().catch(() => []);
     const list = (Array.isArray(msgs) ? msgs : []).concat([{ name: m.name, text: m.text, t: m.t, admin: true }]);
     await fetch(kv(key), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
   } finally {

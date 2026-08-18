@@ -291,6 +291,7 @@ render();
 /* ================= CHAT + BÁO LỖI (kvdb.io) ================= */
 const BUCKET = data.settings.chatBucket;
 const kv = p => `https://kvdb.io/${BUCKET}/${p}`;
+const kvR = p => kv(p) + '?t=' + Date.now(); // GET phải kèm timestamp — kvdb bị browser cache 1 tháng
 const chatKey = () => {
   const route = decodeURIComponent(location.hash.replace(/^#\//, ''));
   const fo = route ? data.folders.find(f => slug(f.name) === route) : null;
@@ -324,7 +325,7 @@ function renderChat() {
 async function loadChat() {
   if (!BUCKET) return;
   try {
-    const msgs = await (await fetch(kv(chatKey()))).json().catch(() => []);
+    const msgs = await (await fetch(kvR(chatKey()))).json().catch(() => []);
     chatMsgs = Array.isArray(msgs) ? msgs : [];
     renderChat();
   } catch { /* mạng lỗi — bỏ qua */ }
@@ -343,7 +344,7 @@ async function sendChat() {
   chatMsgs.push(m);
   renderChat(); // hiện NGAY cho người gửi, không chờ server
   try {
-    const msgs = await (await fetch(kv(chatKey()))).json().catch(() => []);
+    const msgs = await (await fetch(kvR(chatKey()))).json().catch(() => []);
     const list = (Array.isArray(msgs) ? msgs : []).concat([{ name: m.name, text: m.text, t: m.t, admin: false }]);
     await fetch(kv(chatKey()), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
   } finally {
@@ -356,7 +357,7 @@ async function sendChat() {
 async function reportBug(fileId, label) {
   const text = prompt(`Báo lỗi / góp ý cho file "${label}"\nAdmin sẽ thấy trong console:`);
   if (!text || !text.trim()) return;
-  const reports = await (await fetch(kv('reports'))).json().catch(() => []);
+  const reports = await (await fetch(kvR('reports'))).json().catch(() => []);
   const list = Array.isArray(reports) ? reports : [];
   list.push({ fileId, label, text: text.trim().slice(0, 1000), t: Date.now(), done: false });
   await fetch(kv('reports'), { method: 'POST', body: JSON.stringify(list.slice(-200)) });
