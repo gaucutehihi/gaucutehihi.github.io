@@ -3,5 +3,12 @@
     "title": "Respo của gaumeonon",
     "tagline": "Bộ sưu tập file & ghi chú dự án"
   },
-  "folders": []
+  "folders": [
+    {
+      "id": "3a5460c1-11c1-483b-81ff-98a46420b461",
+      "name": "java",
+      "description": "Các projects về ngôn ngữ java",
+      "files": []
+    }
+  ]
 }
