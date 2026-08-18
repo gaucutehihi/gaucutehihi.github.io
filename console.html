@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Be+Vietnam+Pro:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="console">
+  <!-- đăng nhập -->
+  <div id="login-view" hidden>
+    <h1>Console</h1>
+    <p class="sub">Khu vực riêng của admin — kết nối GitHub bằng token của bạn.</p>
+    <div class="panel">
+      <label for="gh-token">GitHub token (fine-grained, quyền Contents: Read &amp; Write)</label>
+      <input type="password" id="gh-token" autocomplete="off" placeholder="github_pat_…">
+      <label for="gh-repo">Repo (dạng <code>user/ten-repo</code>)</label>
+      <input type="text" id="gh-repo" placeholder="vd: minh/kho-du-an">
+      <label for="gh-branch">Branch</label>
+      <input type="text" id="gh-branch" value="main">
+      <button id="btn-login">Kết nối</button>
+      <p id="login-msg" class="msg"></p>
+      <p class="sub" style="margin-top:14px">Token chỉ lưu trong trình duyệt của bạn (localStorage), không gửi đi đâu ngoài GitHub.</p>
+    </div>
+  </div>
+
+  <!-- bảng điều khiển -->
+  <div id="admin-view" hidden>
+    <div class="topbar">
+      <div><h1>Console admin</h1><p class="sub" id="repo-label"></p></div>
+      <div class="row"><span class="badge-admin">ADMIN</span><button class="ghost" id="btn-logout">Đăng xuất</button></div>
+    </div>
+
+    <div class="panel">
+      <h2>Cài đặt trang</h2>
+      <label for="set-title">Tên trang</label>
+      <input type="text" id="set-title" maxlength="120">
+      <label for="set-tagline">Câu giới thiệu</label>
+      <textarea id="set-tagline" maxlength="300"></textarea>
+      <button id="btn-settings">Lưu cài đặt</button>
+      <p id="settings-msg" class="msg"></p>
+    </div>
+
+    <div class="panel">
+      <h2>Tạo mục mới (folder)</h2>
+      <label for="fo-name">Tên mục</label>
+      <input type="text" id="fo-name" maxlength="120" placeholder="VD: Đồ án môn học, Dự án cá nhân…">
+      <label for="fo-desc">Giới thiệu mục</label>
+      <textarea id="fo-desc" maxlength="2000"></textarea>
+      <button id="btn-folder">Tạo mục</button>
+      <p id="folder-msg" class="msg"></p>
+    </div>
+
+    <div class="panel">
+      <h2>Tải file lên</h2>
+      <label for="up-folder">Chọn mục</label>
+      <select id="up-folder"></select>
+      <label for="up-file">File (tối đa 100MB)</label>
+      <input type="file" id="up-file">
+      <label for="up-label">Tên hiển thị (để trống = tên file)</label>
+      <input type="text" id="up-label" maxlength="160">
+      <label for="up-desc">Mô tả / ghi chú về file</label>
+      <textarea id="up-desc" maxlength="2000"></textarea>
+      <button id="btn-upload">Tải lên</button>
+      <p id="upload-msg" class="msg"></p>
+    </div>
+
+    <div class="panel">
+      <h2>Quản lý</h2>
+      <div id="manage-list"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="console.js"></script>
+</body>
+</html>

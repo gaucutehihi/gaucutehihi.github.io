@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kho Dự Án</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Be+Vietnam+Pro:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="bg3d" aria-hidden="true"></canvas>
+
+<header class="hero">
+  <p class="eyebrow">// kho lưu trữ dự án</p>
+  <h1 id="site-title">Kho Dự Án</h1>
+  <p id="site-tagline" class="tagline"></p>
+  <div class="hero-stats" id="hero-stats"></div>
+</header>
+
+<main id="folders" class="wrap"></main>
+
+<footer class="wrap foot">
+  <span id="foot-note">© Kho Dự Án</span>
+</footer>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
