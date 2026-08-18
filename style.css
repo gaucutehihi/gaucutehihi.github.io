@@ -48,31 +48,48 @@ header, main, footer { position: relative; z-index: 1; }
 .hero-stats { display: flex; gap: 28px; margin-top: 34px; font-family: var(--mono); font-size: 13px; color: var(--dim); }
 .hero-stats b { display: block; font-size: 26px; color: var(--chalk); font-weight: 600; }
 
-/* ---------- folder ---------- */
-.folder { margin: 56px 0; }
-.folder-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
-.folder-head .idx { font-family: var(--mono); color: var(--accent); font-size: 14px; }
-.folder-head h2 { font-family: var(--display); font-weight: 700; font-size: 28px; letter-spacing: -.01em; }
-.folder-desc { color: var(--dim); margin: 10px 0 0; max-width: 640px; }
+/* ---------- folder (dạng thẻ folder thật) ---------- */
+.folder-card {
+  margin: 64px 0; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 4px 16px 16px 16px;
+  padding: 26px 26px 20px; position: relative;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+}
+/* tai folder */
+.folder-card::before {
+  content: ""; position: absolute; top: -14px; left: 22px;
+  width: 130px; height: 14px; background: var(--panel);
+  border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 8px 0 0;
+}
+.folder-tab { display: flex; align-items: center; gap: 12px; }
+.folder-ico { color: var(--accent); display: flex; }
+.folder-tab h2 { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: -.01em; }
+.folder-tab .count {
+  margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--dim);
+  border: 1px solid var(--line); border-radius: 99px; padding: 4px 12px;
+}
+.folder-desc { color: var(--dim); margin: 12px 0 0; max-width: 640px; line-height: 1.6; }
 
-.files { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 20px; }
-.file-card {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  padding: 18px; display: flex; flex-direction: column; gap: 10px;
-  transition: transform .18s ease, border-color .18s ease;
+.file-list { margin-top: 18px; display: flex; flex-direction: column; }
+.file-row {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 16px 10px; border-top: 1px solid var(--line);
+  transition: background .15s ease;
 }
-.file-card:hover { transform: translateY(-3px); border-color: rgba(255, 107, 53, .55); }
-.file-top { display: flex; align-items: center; gap: 10px; }
-.ext {
-  font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--bg);
-  background: var(--cyan); border-radius: 4px; padding: 3px 7px; letter-spacing: .06em;
+.file-row:hover { background: rgba(83, 216, 232, .05); }
+.file-ico {
+  flex: 0 0 52px; height: 52px; display: flex; align-items: center; justify-content: center;
+  background: rgba(83, 216, 232, .1); border: 1px solid rgba(83, 216, 232, .3); border-radius: 10px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--cyan); letter-spacing: .04em;
 }
-.file-top h3 { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
-.file-desc { color: var(--dim); font-size: 14px; line-height: 1.55; white-space: pre-line; }
-.file-meta { margin-top: auto; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.file-body { flex: 1; min-width: 0; }
+.file-body h3 { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.file-desc { color: var(--dim); font-size: 14px; line-height: 1.6; margin-top: 5px; white-space: pre-line; }
+.file-meta { font-family: var(--mono); font-size: 12px; color: var(--dim); margin-top: 7px; }
 .dl {
+  flex: 0 0 auto; align-self: center;
   color: var(--accent); text-decoration: none; font-weight: 600; font-family: var(--mono); font-size: 12px;
-  border: 1px solid rgba(255, 107, 53, .5); border-radius: 6px; padding: 6px 12px;
+  border: 1px solid rgba(255, 107, 53, .5); border-radius: 6px; padding: 8px 14px;
   transition: background .15s ease;
 }
 .dl:hover { background: rgba(255, 107, 53, .14); }
@@ -116,7 +133,10 @@ button.small { padding: 6px 12px; margin: 0; font-size: 12px; background: transp
 .badge-admin { font-family: var(--mono); font-size: 11px; color: var(--cyan); border: 1px solid rgba(83, 216, 232, .4); border-radius: 99px; padding: 4px 12px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .file-card { transition: none; }
   html { scroll-behavior: auto; }
 }
-@media (max-width: 640px) { .hero { padding-top: 80px; } }
+@media (max-width: 640px) {
+  .hero { padding-top: 80px; }
+  .file-row { flex-wrap: wrap; }
+  .dl { align-self: flex-start; }
+}
